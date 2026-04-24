@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>아이젠트리 프리미엄 V14</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+
+        :root {
+            --bg-color: #f1f5f9;
+            --panel-navy: #334155; 
+            --accent-bronze: #a87f32; 
+            --card-white: #ffffff;
+            --text-main: #1e293b;
+            --text-gray: #64748b;
+            --editing-blue: #38bdf8;
+            --danger-red: #ef4444; /* 10% 단위 강조색 */
+        }
+
+        body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg-color); color: var(--text-main); margin: 0; padding: 10px; display: flex; justify-content: center; height: 100vh; overflow: hidden; box-sizing: border-box; }
+        .container { width: 1400px; height: 98vh; display: grid; grid-template-columns: 1fr 540px; gap: 20px; }
+
+        .card { background: var(--card-white); border-radius: 20px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        
+        /* [오른쪽] 입력 패널 */
+        .input-panel { order: 2; display: flex; flex-direction: column; overflow: auto; max-height: 100vh;}
+        .input-header-box { flex-shrink: 0; margin-bottom: 5px; }
+        h2 { font-weight: 900; font-size: 1.1rem; margin: 0 0 10px 0; color: var(--panel-navy); border-left: 5px solid var(--accent-bronze); padding-left: 10px; }
+
+        .category-selector { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+        .cat-btn { padding: 18px 10px; border-radius: 15px; border: 1px solid #e2e8f0; background: #fff; font-weight: 900; font-size: 1.3rem; cursor: pointer; color: var(--text-gray);}
+        .cat-btn.active { background: var(--panel-navy); color: #fff; border-color: var(--panel-navy); }
+
+        .input-row { display: flex; align-items: center; gap: 10px; background: #f8fafc; padding: 10px 15px; border-radius: 15px; margin-bottom: 5px; border: 2px solid #e2e8f0; cursor: pointer; }
+        .input-row.active { border-color: var(--panel-navy); background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .input-row.disabled { opacity: 0.2; pointer-events: none; }
+        .price-val { flex: 1; text-align: right; font-size: 1.8rem; font-weight: 900; color: #475569; }
+        
+        .discount-btn { width: 90px; height: 50px; background: var(--panel-navy); color: white; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 900; }
+
+        /* 왕버튼 키패드 */
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; flex-grow: 1; margin-bottom: 5px; }
+        .keypad button { border-radius: 20px; border: 1px solid #cbd5e1; background: #fff; color: #64748b; font-size: 2.2rem; font-weight: 900; cursor: pointer; box-shadow: 0 5px 0 #cbd5e1; }
+        .keypad button:active { transform: translateY(4px); box-shadow: none; background: #f1f5f9; }
+        .keypad button.util { background: #f1f5f9; font-size: 1.1rem; color: var(--text-gray); box-shadow: 0 3px 0 #ddd; border: none; }
+        
+        .btn-confirm { flex: 1; background: var(--panel-navy) !important; color: white !important; font-size: min(1.3rem, 3vh) !important; border-radius: 20px; border: none; font-weight: 900; box-shadow: 0 4px 0 #000; }
+        .btn-add { flex: 1; background: var(--accent-bronze) !important; color: white !important; font-size: 1.6rem !important; border-radius: 20px; border: none; font-weight: 900; box-shadow: 0 6px 0 #785a24; }
+
+        /* [할인율 팝업 오버레이] */
+        #discount-overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(15, 23, 42, 0.96); z-index: 100; 
+            display: none; flex-direction: column; justify-content: flex-start; align-items: center; padding: 10px; box-sizing: border-box; border-radius: 20px;
+        }
+        #discount-overlay h3 { color: white; margin-bottom: 15px; font-size: 1.3rem; }
+        .discount-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
+        .discount-grid button { 
+            padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; background: #fff; color: var(--panel-navy); 
+            font-size: 1.7rem; font-weight: 900; cursor: pointer; transition: 0.1s; 
+        }
+        .discount-grid button:active { transform: scale(0.95); background: var(--accent-bronze); color: white; }
+
+        /* 닫기 버튼 전용 스타일 */
+        .btn-close-overlay { 
+            grid-column: 3 !important; /* 무조건 3번째(오른쪽 끝) 칸으로 보냄 */
+            background: #e67e22 !important; /* 확실한 주황색 */
+            color: white !important; 
+            font-size: 1.2rem !important; 
+            border: none !important;
+            box-shadow: 0 5px 0 #d35400 !important; /* 입체감 주는 그림자 */
+        }
+        /* 10% 단위 붉은 글씨 */
+        .discount-grid button.ten-step { 
+            color: var(--danger-red); 
+            font-size: 2.2rem !important; /* 기존보다 더 크게 */
+        }
+
+        /* [왼쪽] 리스트 패널 - 상하폭 축소 */
+        .list-panel { order: 1; }
+        #item-list { flex: 1; overflow-y: auto; padding-right: 5px; user-select: none;}
+
+        /* 품목리스트 배경에 로고 이미지 넣기 */
+        .list-panel::before {
+            content: '';
+            position: absolute;
+            top: 45%;               /* 위아래 위치 (숫자가 커지면 아래로 내려감) */
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;           /* 로고 가로 크기 (매장 로고 크기에 맞게 조절하세요) */
+            height: 400px;          /* 로고 세로 크기 */
+            background: url('logo.png') no-repeat center/contain; /* ★파일명 확인 필수! */
+            opacity: 0.04;          /* 투명도 (0.01~0.1 사이에서 은은하게 조절하세요) */
+            filter: grayscale(100%); /* 로고 색상을 무채색으로 변경해서 눈 안 아프게 함 */
+            pointer-events: none;   /* 배경 로고가 클릭되는 현상 방지 */
+            z-index: 0;             /* 리스트 글자들보다 뒤로 가게 함 */
+        }
+
+        .card-안경 { border-left: 12px solid #92a8d1 !important; }      /* 뮤트 블루 */
+        .card-선글라스 { border-left: 12px solid #d9c5b2 !important; }
+        .card-콘택트 { border-left: 12px solid #99d5ca !important; }    /* 페일 민트 */
+        .card-기타 { border-left: 12px solid #c3aed6 !important; }      /* 라벤더 그레이 */
+
+        /* [리스트 카드 기본 디자인] 왼쪽 굵은 주황색 바 */
+        .item-card { 
+            background: #fff; 
+            border: 2px solid #e2e8f0; 
+            border-radius: 15px; 
+            margin-bottom: 15px; 
+            position: relative; 
+            transition: all 0.2s ease;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        /* [수정 중] 상태: 왼쪽 선은 파랑, 테두리는 진한 네이비로 깜빡임 */
+        .item-card.editing { 
+            border: 2px solid;
+            background-color: #f0f9ff;
+            animation: editing-pulse 1s infinite; /* 1초 간격으로 빠르게 깜빡임 */
+        }
+
+        /* 수정 중인 카드: 프리미엄 샴페인 골드 오라 효과 */
+        @keyframes editing-pulse {
+            0% { 
+                border-color: #e2e8f0; 
+                box-shadow: 0 0 5px rgba(197, 160, 89, 0.1); 
+                background-color: #ffffff;
+            }
+            50% { 
+                border-color: #c5a059; /* 세련된 샴페인 골드 */
+                box-shadow: 0 0 15px rgba(197, 160, 89, 0.3); /* 은은한 금빛 광채 */
+                background-color: #fefaf2; /* 매우 연한 크림색 배경 */
+            }
+            100% { 
+                border-color: #e2e8f0; 
+                box-shadow: 0 0 5px rgba(197, 160, 89, 0.1); 
+                background-color: #ffffff;
+            }
+        }
+
+        /* 확정된 카드 디자인 */
+        .item-card.confirmed { 
+            border: 2px solid #e2e8f0; 
+            background-color: #fffaf0;
+        }
+
+        .item-header { background: #f8fafc; padding: 3px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; }
+        .item-index { font-weight: 900; font-size: 1rem; color: var(--panel-navy); }
+        .item-cat-tag { background: var(--panel-navy); color: #fff; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; margin-left: 5px; }
+
+        .price-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 5px 0; }
+        .price-table th { font-size: 0.95rem; color: var(--text-gray); padding: 2px 15px; text-align: right; }
+        .price-table td { padding: 2px 15px; text-align: right; }
+        .col-label { width: 70px; text-align: left !important; font-weight: 800; color: var(--panel-navy); font-size: 1.1rem; }
+        .col-original { width: 120px; font-size: 1.5rem; color: #94a3b8; }
+        .col-discounted { font-size: 1.7rem; font-weight: 900; color: #475569; }
+        .col-rate { width: 80px; font-size: 1.3rem; font-weight: 900; color: var(--danger-red); }
+
+        .item-footer { 
+            padding: 10px; 
+            border-top: 1px dashed #e2e8f0; 
+            display: flex; 
+            justify-content: right; /* 왼쪽-오른쪽 찢어짐 방지: 가운데로 모음 */
+            align-items: baseline;   /* 글자 아랫선 맞춤 */
+            gap: 15px;               /* 글자와 숫자 사이 간격 */
+            background: #fdfaf5;     /* 은은한 샴페인 골드빛 배경으로 강조 */
+        }
+        .item-total-val { font-size: 1.8rem; font-weight: 900; color: var(--panel-navy); }
+
+        .btn-group { display: flex; gap: 5px; }
+        .btn-small { 
+            border: 1px solid transparent; 
+            padding: 6px 18px;     /* 좌우 폭을 10에서 18로 대폭 늘림 */
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 0.9rem;     /* 글자도 조금 더 키움 */
+            font-weight: 800; 
+        }
+        .btn-edit { background: #bae6fd !important; color: #0369a1 !important; border-color: #7dd3fc !important; } /* 더 진한 하늘색 */
+        .btn-del { 
+            background: transparent !important; /* 배경 투명하게 */
+            color: #cbd5e1 !important;          /* 평소에는 연한 회색 */
+            border: none !important;            /* 테두리 삭제 */
+            font-size: 1.5rem !important;       /* 크기는 크게 */
+            font-weight: 900 !important;        /* 아주 굵게 */
+            padding: 0 5px !important;          /* 여백 조정 */
+            transition: all 0.2s ease;          /* 부드러운 변화 효과 */
+        }
+
+        /* 마우스를 올렸을 때만 빨간색으로 강조 */
+        .btn-del:hover { 
+            color: #ef4444 !important; 
+            transform: scale(1.2);              /* 살짝 커지는 효과 */
+        }
+
+        .final-summary { border-top: 4px solid var(--panel-navy); padding-top: 15px; margin-top: 10px; }
+        .final-total-amt { font-size: 3.2rem; font-weight: 900; color: var(--panel-navy); letter-spacing: -2px; }
+        .onnuri-box { 
+            color: #cc8e35;         /* 글자색을 기존보다 조금 더 연한 브론즈로 변경 */
+            font-weight: 800; 
+            font-size: 1.2rem; 
+            text-align: right; 
+            margin-top: 20px;       /* 위쪽(합계 금액)과의 간격을 10에서 25로 대폭 늘림 */
+            padding-top: 15px;      /* 점선과 글자 사이의 간격 */
+            border-top: 1px dotted #cc8e35; /* 2px 실선 대신 1px 연한 점선으로 변경 */
+        }
+
+        /* 리스트 패널 스크롤바 디자인 */
+        #item-list {
+            scrollbar-width: thin; /* 파이어폭스용 */
+            scrollbar-color: #cbd5e1 transparent;
+            cursor: grab; /* 평소에는 손바닥 모양 */
+        }
+
+        #item-list:active {
+            cursor: grabbing; /* 클릭 시 움켜쥐는 모양 */
+        }
+
+        /* 크롬, 엣지, 사파리용 스크롤바 설정 */
+        #item-list::-webkit-scrollbar {
+            width: 6px; /* 스크롤바 두께를 아주 얇게 */
+        }
+        #item-list::-webkit-scrollbar-track {
+            background: transparent; /* 트랙은 투명하게 */
+        }
+        #item-list::-webkit-scrollbar-thumb {
+            background: #cbd5e1; /* 스크롤바 색상 */
+            border-radius: 10px; /* 둥글게 */
+        }
+        #item-list::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; /* 마우스 올리면 좀 더 진하게 */
+        }
+
+        .btn-add.focused {
+            background: #d97706 !important; /* 조금 더 진한 주황색 */
+            box-shadow: 0 0 20px rgba(168, 127, 50, 0.8) !important; /* 주변 반짝임 */
+            transform: scale(1.03); /* 아주 살짝 커짐 */
+            transition: all 0.2s ease;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card input-panel">
+        <div id="discount-overlay">
+            <h3 id="overlay-target-text">할인율 선택</h3>
+            <div class="discount-grid">
+                <button onclick="applyDiscount(0)">0%</button>
+                <button onclick="applyDiscount(5)">5%</button>
+                <button class="ten-step" onclick="applyDiscount(10)">10%</button>
+                <button onclick="applyDiscount(15)">15%</button>
+                <button class="ten-step" onclick="applyDiscount(20)">20%</button>
+                <button onclick="applyDiscount(25)">25%</button>
+                <button class="ten-step" onclick="applyDiscount(30)">30%</button>
+                <button onclick="applyDiscount(35)">35%</button> <button class="ten-step" onclick="applyDiscount(40)">40%</button>
+                <button onclick="applyDiscount(45)">45%</button>
+                <button class="ten-step" onclick="applyDiscount(50)">50%</button>
+                <button onclick="applyDiscount(55)">55%</button>
+                <button class="ten-step" onclick="applyDiscount(60)">60%</button>
+                <button onclick="applyDiscount(65)">65%</button>
+                <button class="ten-step" onclick="applyDiscount(70)">70%</button>
+                <button class="btn-close-overlay" onclick="closeDiscount()">닫기</button>
+                
+                <hr style="grid-column: span 3; width: 100%; border: 1px solid #444; margin: 10px 0;">
+                <button style="color:#f1c40f" onclick="applyFixedDiscount(10000)">-1만원</button>
+                <button style="color:#f1c40f" onclick="applyFixedDiscount(20000)">-2만원</button>
+                <button style="color:#f1c40f" onclick="applyFixedDiscount(30000)">-3만원</button>
+            </div>
+        </div>
+
+        <div class="input-header-box">
+            <h2>상담 입력</h2>
+            <div class="category-selector">
+                <button class="cat-btn active" id="btn-glasses" onclick="setCategory('안경')">안경</button>
+                <button class="cat-btn" id="btn-sunglass" onclick="setCategory('선글라스')">선글라스</button>
+                <button class="cat-btn" id="btn-contact" onclick="setCategory('콘택트')">콘택트</button>
+                <button class="cat-btn" id="btn-etc" onclick="setCategory('기타')">기타</button>
+            </div>
+            
+            <div class="input-row active" id="row-frame" onclick="setActive('frame')">
+                <div style="width:65px; font-weight:800; color:var(--text-gray);">프레임</div>
+                <div class="price-val" id="frame-display">0</div>
+                <div style="font-weight:700; color:#94a3b8; margin:0 10px;">원</div>
+                <div class="discount-btn" onclick="openDiscount('frame', event)" id="frame-disc-btn">0%</div>
+            </div>
+            
+            <div class="input-row" id="row-lens" onclick="setActive('lens')">
+                <div style="width:65px; font-weight:800; color:var(--text-gray);" id="label-lens">렌즈</div>
+                <div class="price-val" id="lens-display">0</div>
+                <div style="font-weight:700; color:#94a3b8; margin:0 10px;">원</div>
+                <div class="discount-btn" onclick="openDiscount('lens', event)" id="lens-disc-btn">0%</div>
+            </div>
+        </div>
+
+        <div class="keypad">
+            <button onclick="num('7')">7</button><button onclick="num('8')">8</button><button onclick="num('9')">9</button>
+            <button onclick="num('4')">4</button><button onclick="num('5')">5</button><button onclick="num('6')">6</button>
+            <button onclick="num('1')">1</button><button onclick="num('2')">2</button><button onclick="num('3')">3</button>
+            <button onclick="num('00')">00</button><button onclick="num('0')">0</button><button onclick="num('000')">000</button>
+            <button class="util" style="font-size:0.95rem;" onclick="fullReset()">전체 삭제</button>
+            <button class="util" onclick="resetCurrent()">현재 목록 삭제</button>
+            <button class="util" onclick="del()">← 삭제</button>
+
+            <button id="add-btn" onclick="addNewItem()" style="grid-column: span 3; background: var(--panel-navy); color: white; font-size: 1.2rem; height: 70px; margin-top: 5px;">+ 다음 품목 추가</button>
+        </div>
+        <div style="text-align: center; margin-top: 5px; opacity: 0.6;">
+            <p style="font-size: 0.95rem; color: #64748b; font-weight: 700; margin-bottom: 5px; letter-spacing: 0.5px;">
+                "더 선명해진 당신의 미소, 그 너머의 꿈까지 응원합니다."
+            </p>
+            <p style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">
+                Designed by <span style="color: #c5a059; font-weight: 800;">안경사 육주성</span>
+            </p>
+        </div>
+    </div>
+
+    <div class="card list-panel">
+        <h2>품목 리스트</h2>
+        <div id="item-list"></div>
+
+        <div class="final-summary">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight: 800; color: var(--text-gray); font-size:1.6rem;">총 결제 합계</span>
+                <span class="final-total-amt" id="grand-total">0원</span>
+            </div>
+            <div class="onnuri-box">지역화폐(10%페이백 가정) 결제 시 실질 체감가: <span id="onnuri-val">0</span>원</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let activeType = 'frame';
+    let history = [];
+    let isAddBtnFocused = false; // 버튼 하이라이트 상태 기억
+    let discountTarget = 'frame';
+    let editingId = null;
+
+    // 시작 시 첫 항목 생성 및 리스트 추가
+    let currentInput = { 
+        id: Date.now(), 
+        category: '안경', 
+        framePrice: 0, frameDisc: 0, frameDiscType: 'pct', 
+        lensPrice: 0, lensDisc: 0, lensDiscType: 'pct', 
+        isConfirmed: false 
+    };
+    history.push(currentInput); 
+    editingId = currentInput.id;
+
+    function applyFixedDiscount(amt) {
+        if(currentInput.isConfirmed) return;
+        currentInput[discountTarget + 'Disc'] = amt; // activeType 대신 discountTarget 사용
+        currentInput[discountTarget + 'DiscType'] = 'fixed'; 
+        closeDiscount();
+        updateUI();
+    }
+
+    function setCategory(cat) {
+        if(currentInput.isConfirmed) return;
+        currentInput.category = cat;
+        document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.toggle('active', btn.innerText === cat));
+        const frameRow = document.getElementById('row-frame');
+        const lensLabel = document.getElementById('label-lens');
+
+        if(cat === '콘택트' || cat === '기타') { // 기타 추가
+            frameRow.classList.add('disabled'); lensLabel.innerText = "금액"; setActive('lens');
+        } else {
+            frameRow.classList.remove('disabled'); lensLabel.innerText = "렌즈"; setActive('frame');
+        }
+        updateUI();
+    }
+
+    function openDiscount(type, event) {
+        if(currentInput.isConfirmed) return;
+        event.stopPropagation();
+        discountTarget = type;
+        document.getElementById('overlay-target-text').innerText = (type === 'frame' ? '프레임' : '렌즈') + ' 할인율 선택';
+        document.getElementById('discount-overlay').style.display = 'flex';
+    }
+
+    function closeDiscount() {
+        document.getElementById('discount-overlay').style.display = 'none';
+    }
+
+    function applyDiscount(pct) {
+        if(currentInput.isConfirmed) return;
+        currentInput[discountTarget + 'Disc'] = pct;
+        currentInput[discountTarget + 'DiscType'] = 'pct'; // 퍼센트 방식임을 명시
+        closeDiscount();
+        updateUI();
+    }
+
+    function setActive(type) {
+        if(currentInput.isConfirmed) return;
+        isAddBtnFocused = false;
+        document.getElementById('add-btn').classList.remove('focused');
+        if(currentInput.isConfirmed) return;
+        activeType = type;
+        document.getElementById('row-frame').classList.toggle('active', type === 'frame');
+        document.getElementById('row-lens').classList.toggle('active', type === 'lens');
+    }
+
+    function num(val) {
+        isAddBtnFocused = false; // 하이라이트 끄기
+        document.getElementById('add-btn').classList.remove('focused');
+        if(currentInput.isConfirmed) return;
+        // 숫자가 0이면 지우고 시작, 아니면 뒤에 글자를 붙입니다.
+        let cur = String(currentInput[activeType + 'Price']);
+        if(cur === '0') cur = '';
+        currentInput[activeType + 'Price'] = cur + val; 
+        updateUI();
+    }
+
+    function del() {
+        if(currentInput.isConfirmed) return;
+        let cur = String(currentInput[activeType + 'Price']);
+        cur = cur.slice(0, -1);
+        currentInput[activeType + 'Price'] = cur === '' ? 0 : parseInt(cur);
+        updateUI();
+    }
+
+    function updateUI() {
+        // 현재 입력 중인 데이터를 history에 실시간 동기화
+        const idx = history.findIndex(h => h.id === currentInput.id);
+        if (idx !== -1) history[idx] = {...currentInput};
+
+        // 숫자인 경우에만 3자리마다 쉼표(,)를 찍어주는 기능
+        const formatInput = (val) => {
+            let s = String(val).replace(/,/g, ''); // 기존 쉼표 제거
+            if (!isNaN(s) && s !== '') {
+                return Number(s).toLocaleString(); // 숫자면 쉼표 추가
+            }
+            return val; // 수식(+,-,*)인 경우 그대로 표시
+        };
+
+        const fDisp = formatInput(currentInput.framePrice);
+        const lDisp = formatInput(currentInput.lensPrice);
+
+        document.getElementById('frame-display').innerText = fDisp;
+        document.getElementById('lens-display').innerText = lDisp;
+
+        // 할인율 버튼 표시 (만원 vs %)
+        document.getElementById('frame-disc-btn').innerText = 
+            currentInput.frameDiscType === 'fixed' ? (currentInput.frameDisc / 10000) + '만원' : currentInput.frameDisc + '%';
+        document.getElementById('lens-disc-btn').innerText = 
+            currentInput.lensDiscType === 'fixed' ? (currentInput.lensDisc / 10000) + '만원' : currentInput.lensDisc + '%';
+        
+        renderList();
+    }
+
+    function confirmCurrent() {
+        if(currentInput.framePrice + currentInput.lensPrice === 0) return;
+        
+        // [순서 유지 핵심] 수정 중이었다면 보관함의 그 위치 그대로 덮어씁니다.
+        if (editingId !== null) {
+            const idx = history.findIndex(h => h.id === editingId);
+            if (idx !== -1) {
+                history[idx] = {...currentInput, isConfirmed: true};
+            }
+        }
+        
+        currentInput.isConfirmed = true;
+        updateUI();
+    }
+
+    function addNewItem() {
+        const lastCategory = currentInput.category; // 1. 현재 카테고리를 기억함
+
+        const currentIdx = history.findIndex(h => h.id === currentInput.id);
+        if (currentIdx !== -1) history[currentIdx].isConfirmed = true;
+
+        const nextId = Date.now();
+        const newItem = { 
+            id: nextId, 
+            category: lastCategory, // 2. 기억한 카테고리를 그대로 적용
+            framePrice: 0, frameDisc: 0, frameDiscType: 'pct',
+            lensPrice: 0, lensDisc: 0, lensDiscType: 'pct',
+            isConfirmed: false 
+        };
+
+        history.push(newItem); 
+        editingId = nextId;
+        currentInput = {...newItem};
+
+        setCategory(lastCategory); // 3. 화면 UI도 해당 카테고리로 유지
+
+        isAddBtnFocused = false;
+        document.getElementById('add-btn').classList.remove('focused');
+        updateUI();
+    }
+
+    function editItem(id) {
+        // 다른 걸 누르기 전, 지금 작업하던 내용을 history에 임시 저장
+        const currentIdx = history.findIndex(h => h.id === currentInput.id);
+        if (currentIdx !== -1) history[currentIdx] = {...currentInput};
+
+        const target = history.find(h => h.id === id);
+        if(!target) return;
+        
+        editingId = id; 
+        currentInput = JSON.parse(JSON.stringify(target));
+        currentInput.isConfirmed = false;
+        
+        setCategory(currentInput.category);
+        updateUI();
+    }
+
+    function renderList() {
+        const container = document.getElementById('item-list');
+        if (!container) return;
+        container.innerHTML = '';
+        let grandTotal = 0;
+
+        history.forEach((item, idx) => {
+            // 현재 수정 중이면 실시간 입력 데이터를, 아니면 보관함 데이터를 사용
+            let dataToRender = (editingId === item.id) ? currentInput : item;
+            let state = (editingId === item.id) ? "editing" : "confirmed";
+
+            // [정밀 계산] 절삭(floor) 로직을 완전히 제거했습니다.
+            let fFinal = Number(dataToRender.framePrice);
+            if (dataToRender.frameDiscType === 'fixed') fFinal -= dataToRender.frameDisc;
+            else fFinal = dataToRender.framePrice * (1 - dataToRender.frameDisc/100);
+
+            let lFinal = Number(dataToRender.lensPrice);
+            if (dataToRender.lensDiscType === 'fixed') lFinal -= dataToRender.lensDisc;
+            else lFinal = dataToRender.lensPrice * (1 - dataToRender.lensDisc/100);
+
+            if(fFinal < 0) fFinal = 0; if(lFinal < 0) lFinal = 0;
+            const total = (dataToRender.category === '콘택트' || dataToRender.category === '기타') ? lFinal : (fFinal + lFinal);
+            grandTotal += Number(total);
+            container.appendChild(createItemCard(dataToRender, idx + 1, fFinal, lFinal, total, state));
+        });
+
+        // 새 품목 추가 중일 때 (수정 모드가 아닐 때만 하단 표시)
+        if (editingId === null) {
+            let curF = currentInput.framePrice;
+            if (currentInput.frameDiscType === 'fixed') curF -= currentInput.frameDisc;
+            else curF = currentInput.framePrice * (1 - currentInput.frameDisc/100);
+
+            let curL = currentInput.lensPrice;
+            if (currentInput.lensDiscType === 'fixed') curL -= currentInput.lensDisc;
+            else curL = currentInput.lensPrice * (1 - currentInput.lensDisc/100);
+
+            const curT = (currentInput.category === '콘택트') ? currentInput.lensPrice : (curF + curL);
+            grandTotal += curT;
+            container.appendChild(createItemCard(currentInput, history.length + 1, curF, curL, curT, "editing"));
+        }
+
+        document.getElementById('grand-total').innerText = Math.round(grandTotal).toLocaleString() + '원';
+        document.getElementById('onnuri-val').innerText = Math.floor(grandTotal * 0.9).toLocaleString();
+    }
+
+    function resetCurrent() {
+        // 1. 만약 보관함(history)에 이미 확정된 앞선 품목이 있다면
+        if (history.length > 0) {
+            // 현재 입력 중인(예: #2) 내용을 버리고, 보관함의 마지막(예: #1)을 다시 꺼내옴
+            const lastItem = history.pop(); 
+            currentInput = { ...lastItem, isConfirmed: false }; // 다시 수정 가능 상태로 변경
+            
+            // 버튼 상태도 '금액 확정'이 보이게 변경
+            setCategory(currentInput.category);
+        } 
+        // 2. 만약 첫 번째 품목(#1)이라면 그냥 숫자만 0으로 초기화
+        else {
+            currentInput.framePrice = 0; currentInput.lensPrice = 0;
+            currentInput.frameDisc = 0; currentInput.lensDisc = 0;
+            currentInput.frameDiscType = 'pct'; currentInput.lensDiscType = 'pct';
+        }
+        updateUI();
+    }
+
+    // 1. 모달창 띄우기
+    function fullReset() {
+        document.getElementById('reset-modal-overlay').style.display = 'flex';
+    }
+
+    // 2. 모달창 닫기 (취소 눌렀을 때)
+    function closeFullResetModal() {
+        document.getElementById('reset-modal-overlay').style.display = 'none';
+    }
+
+    // 3. 진짜로 삭제 진행 (삭제 진행 눌렀을 때)
+    function confirmFullReset() {
+        history = []; // 보관함 비우기
+        currentInput = { 
+            id: Date.now(), 
+            category: '안경', 
+            framePrice: 0, 
+            frameDisc: 0, 
+            frameDiscType: 'pct', 
+            lensPrice: 0, 
+            lensDisc: 0, 
+            lensDiscType: 'pct', 
+            isConfirmed: false 
+        };
+        setCategory('안경');
+        updateUI();
+        closeFullResetModal(); // 작업 끝나면 창 닫기
+    }
+
+    function deleteHistory(id) { history = history.filter(h => h.id !== id); renderList(); }
+
+    function createItemCard(data, num, fFinal, lFinal, total, state) {
+        const div = document.createElement('div');
+        div.className = `item-card ${state === 'editing' ? 'editing' : 'confirmed'} card-${data.category}`;
+        if(state !== 'editing') div.onclick = () => editItem(data.id);
+
+        const formatDisc = (disc, type) => {
+            if (disc === 0) return '<span style="color:#cbd5e1; font-size:0.8rem;">정찰가</span>';
+            if (type === 'fixed') return (disc / 10000) + '만원 ↓';
+            return disc + '% ↓';
+        };
+
+        // 1. 콘택트나 기타일 때 (맞춤 내역)
+        let content = (data.category === '콘택트' || data.category === '기타') ? `
+            <div style="padding: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight:800; font-size:1.15rem; color:var(--text-gray);"> 맞춤 내역</span>
+                <span style="font-size:2.2rem; font-weight:900; color:var(--panel-navy);">${Math.round(total).toLocaleString()}원</span>
+            </div>
+        ` : `
+            <table class="price-table">
+                <thead>
+                    <tr>
+                        <th class="col-label">구분</th>
+                        <th style="text-align:right;">권장 소비자 가격</th>
+                        <th style="width:40px;"></th> <th style="text-align:right;">할인가격</th>
+                        <th style="text-align:right;">할인율</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="col-label">프레임</td>
+                        <td class="col-original" style="font-size:1.6rem; text-decoration:none; font-weight:800;">
+                            ${data.frameDisc > 0 ? Number(data.framePrice).toLocaleString() + '원' : ''}
+                        </td>
+                        <td style="color:#ef4444; text-align:right; padding-right:5px; font-size:1.1rem; font-weight:900;">
+                            ${data.frameDisc > 0 ? '▶' : ''}
+                        </td>
+                        <td class="col-discounted" style="font-size:1.6rem;">${Math.round(fFinal).toLocaleString()}원</td>
+                        <td class="col-rate">${formatDisc(data.frameDisc, data.frameDiscType)}</td>
+                    </tr>
+                    <tr>
+                        <td class="col-label">렌즈</td>
+                        <td class="col-original" style="font-size:1.6rem; text-decoration:none; font-weight:800;">
+                            ${data.lensDisc > 0 ? Number(data.lensPrice).toLocaleString() + '원' : ''}
+                        </td>
+                        <td style="color:#ef4444; text-align:right; padding-right:5px; font-size:1.1rem; font-weight:900;">
+                            ${data.lensDisc > 0 ? '▶' : ''}
+                        </td>
+                        <td class="col-discounted" style="font-size:1.6rem;">${Math.round(lFinal).toLocaleString()}원</td>
+                        <td class="col-rate">${formatDisc(data.lensDisc, data.lensDiscType)}</td>
+                    </tr>
+                </tbody>
+            </table>
+        `;
+
+        // 2. 하단 합계 줄 (오른쪽 정렬 유지 + 숫자 강조)
+        const footer = (data.category === '안경' || data.category === '선글라스') ? `
+            <div class="item-footer" style="display:flex; justify-content: flex-end; align-items:baseline; gap:12px; background:#f8fafc; padding:5px 20px; border-top:1px dashed #e2e8f0;">
+                <span style="font-weight:800; color: #e11d48;; font-size:1.2rem;">합계</span>
+                <span style="font-size:2.2rem; font-weight:900; color: var(--panel-navy); letter-spacing:-1.5px;">${Math.round(total).toLocaleString()}원</span>
+            </div>
+        ` : '';
+
+        div.innerHTML = `
+            <div class="item-header">
+                <div><span class="item-index">#${num}</span><span class="item-cat-tag">${data.category}</span>
+                ${state === 'editing' ? '<span style="margin-left:10px; color:#c5a059; font-weight:900; font-size:0.8rem;">[입력 중...]</span>' : ''}</div>
+                <button class="btn-small btn-del" onclick="event.stopPropagation(); deleteHistory(${data.id})">✕</button>
+            </div>
+            ${content}
+            ${footer}
+        `;
+        return div;
+    }
+    // 키보드 입력 이벤트 추가
+    // 키보드 입력 이벤트 전체 (에러 수정 버전)
+    window.onkeydown = function(e) {
+        // 1. 숫자 및 연산 기호
+        if (/^[0-9*\/+\-.]/.test(e.key)) {
+            if (e.target.tagName === 'BUTTON') e.target.blur(); 
+            num(e.key);
+        }
+        // 2. 백스페이스 (삭제)
+        else if (e.key === 'Backspace') {
+            e.preventDefault();
+            del();
+        }
+        // 3. ESC 키 (모달 닫기 또는 입력 취소)
+        else if (e.key === 'Escape') {
+            // 전체 삭제 창이 열려있으면 창을 닫고, 아니면 입력 되돌리기
+            const modal = document.getElementById('reset-modal-overlay');
+            if (modal && modal.style.display === 'flex') {
+                closeFullResetModal();
+            } else {
+                resetCurrent();
+            }
+        }
+        // 4. 엔터 (계산 및 확정)
+        else if (e.key === 'Enter') {
+            e.preventDefault();
+            // 콤마가 포함되어 있을 수 있으므로 제거 후 계산 준비
+            let rawVal = String(currentInput[activeType + 'Price']).replace(/,/g, '');
+            
+            // 1. 수식에 '*' (곱하기)가 포함된 경우 (예: 100000*0.8)
+            if (rawVal.includes('*')) {
+                try {
+                    let parts = rawVal.split('*');
+                    let originalPrice = parseFloat(parts[0]);
+                    let multiplier = parseFloat(parts[1]);
+                    if (multiplier < 1) {
+                        currentInput[activeType + 'Price'] = originalPrice;
+                        discountTarget = activeType;
+                        applyDiscount(Math.round((1 - multiplier) * 100));
+                    } else {
+                        currentInput[activeType + 'Price'] = originalPrice * multiplier;
+                    }
+                } catch(err) { alert("계산 방식이 올바르지 않습니다."); }
+                updateUI();
+            }
+            // 2. 수식에 '-' (마이너스)가 포함된 경우 (예: 40000-10000)
+            else if (rawVal.includes('-') && !rawVal.startsWith('-')) {
+                try {
+                    let parts = rawVal.split('-');
+                    let originalPrice = parseFloat(parts[0]);
+                    let discAmount = parseFloat(parts[1]);
+                    
+                    currentInput[activeType + 'Price'] = originalPrice; // 소비자가로 고정
+                    discountTarget = activeType;
+                    applyFixedDiscount(discAmount); // 뺀 금액만큼 자동으로 '만원 할인' 적용
+                } catch(err) { alert("할인 계산 방식이 올바르지 않습니다."); }
+                updateUI();
+            }
+            // 3. 수식에 '+', '/' 가 포함된 경우 (일반 계산)
+            else if (/[+\/]/.test(rawVal)) {
+                try {
+                    currentInput[activeType + 'Price'] = eval(rawVal);
+                } catch(err) { alert("계산식이 올바르지 않습니다."); }
+                updateUI();
+            } 
+            // 4. 수식이 없을 때의 엔터 로직 (기존 3단계 동선)
+            else {
+                if (activeType === 'frame' && currentInput.category !== '콘택트') {
+                    setActive('lens');
+                } else if (!isAddBtnFocused) {
+                    isAddBtnFocused = true;
+                    document.getElementById('add-btn').classList.add('focused');
+                } else {
+                    addNewItem();
+                }
+            }
+        }
+    };
+
+    function init() { updateUI(); }
+    window.onload = init;
+
+    // [터치패드식 드래그 스크롤 기능]
+    const listContainer = document.getElementById('item-list');
+    let isDown = false;   // 마우스를 누르고 있는 상태인지 확인하는 변수
+    let startY;           // 마우스를 처음 누른 지점의 높이
+    let scrollTop;        // 마우스를 누른 순간의 스크롤 위치
+
+    // 1. 마우스를 꾹 눌렀을 때 (잡기)
+    listContainer.addEventListener('mousedown', (e) => {
+        isDown = true;
+        listContainer.style.cursor = 'grabbing'; // 꽉 쥔 손바닥 모양으로 변경
+        // 현재 마우스 위치와 리스트의 스크롤 상태를 기억해둡니다.
+        startY = e.pageY - listContainer.offsetTop;
+        scrollTop = listContainer.scrollTop;
+    });
+
+    // 2. 마우스가 리스트 영역을 벗어났을 때 (놓치기)
+    listContainer.addEventListener('mouseleave', () => {
+        isDown = false;
+        listContainer.style.cursor = 'grab';
+    });
+
+    // 3. 마우스 버튼을 뗐을 때 (놓기)
+    listContainer.addEventListener('mouseup', () => {
+        isDown = false;
+        listContainer.style.cursor = 'grab';
+    });
+
+    // 4. 마우스를 누른 채로 움직일 때 (끌기)
+    listContainer.addEventListener('mousemove', (e) => {
+        if (!isDown) return; // 마우스를 누른 상태가 아니면 작동하지 않음
+        
+        e.preventDefault(); // 드래그할 때 텍스트가 선택되는 현상을 방지
+        const y = e.pageY - listContainer.offsetTop;
+        // 마우스가 움직인 거리만큼 계산 (뒤의 2는 스크롤 속도입니다. 3으로 바꾸면 더 빨라져요)
+        const walk = (y - startY) * 2; 
+        listContainer.scrollTop = scrollTop - walk;
+    });
+
+</script>
+    <div id="reset-modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.85); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
+        <div style="background: white; padding: 30px; border-radius: 25px; width: 320px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid #e2e8f0;">
+            <div style="font-size: 3rem; margin-bottom: 15px;">⚠️</div>
+            <h3 style="margin: 0 0 10px 0; color: #0f172a; font-weight: 900; font-size: 1.4rem;">전체 삭제</h3>
+            <p style="color: #64748b; margin-bottom: 25px; line-height: 1.5; font-weight: 500;">모든 상담 내역이 초기화됩니다.<br>정말로 진행하시겠습니까?</p>
+            <div style="display: flex; gap: 10px;">                
+                <button onclick="confirmFullReset()" style="flex: 1; padding: 12px; border-radius: 15px; border: none; background: #ef4444; color: white; font-weight: 800; cursor: pointer; font-size: 1rem; box-shadow: 0 4px 0 #991b1b;">삭제 진행</button>
+                <button onclick="closeFullResetModal()" style="flex: 1; padding: 12px; border-radius: 15px; border: 1px solid #e2e8f0; background: #f8fafc; color: #64748b; font-weight: 800; cursor: pointer; font-size: 1rem;">취소</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
