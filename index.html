@@ -117,7 +117,7 @@
             width: 400px;           /* 로고 가로 크기 (매장 로고 크기에 맞게 조절하세요) */
             height: 400px;          /* 로고 세로 크기 */
             background: url('logo.png') no-repeat center/contain; /* ★파일명 확인 필수! */
-            opacity: 0.04;          /* 투명도 (0.01~0.1 사이에서 은은하게 조절하세요) */
+            opacity: 1;          /* 투명도 (0.01~0.1 사이에서 은은하게 조절하세요) */
             filter: grayscale(100%); /* 로고 색상을 무채색으로 변경해서 눈 안 아프게 함 */
             pointer-events: none;   /* 배경 로고가 클릭되는 현상 방지 */
             z-index: 0;             /* 리스트 글자들보다 뒤로 가게 함 */
@@ -149,21 +149,9 @@
 
         /* 수정 중인 카드: 프리미엄 샴페인 골드 오라 효과 */
         @keyframes editing-pulse {
-            0% { 
-                border-color: #e2e8f0; 
-                box-shadow: 0 0 5px rgba(197, 160, 89, 0.1); 
-                background-color: #ffffff;
-            }
-            50% { 
-                border-color: #c5a059; /* 세련된 샴페인 골드 */
-                box-shadow: 0 0 15px rgba(197, 160, 89, 0.3); /* 은은한 금빛 광채 */
-                background-color: #fefaf2; /* 매우 연한 크림색 배경 */
-            }
-            100% { 
-                border-color: #e2e8f0; 
-                box-shadow: 0 0 5px rgba(197, 160, 89, 0.1); 
-                background-color: #ffffff;
-            }
+            0% { border-color: #e2e8f0; background-color: #ffffff; }
+            50% { border-color: #c5a059; background-color: #fefaf2; }
+            100% { border-color: #e2e8f0; background-color: #ffffff; }
         }
 
         /* 확정된 카드 디자인 */
@@ -588,15 +576,16 @@
     function renderList() {
         const container = document.getElementById('item-list');
         if (!container) return;
-        container.innerHTML = '';
+
+        // 메모리 내 임시 보관함 생성 (화면 깜빡임과 연산 부하 감소)
+        const fragment = document.createDocumentFragment();
         let grandTotal = 0;
 
+        // 1. 기존 데이터들 처리
         history.forEach((item, idx) => {
-            // 현재 수정 중이면 실시간 입력 데이터를, 아니면 보관함 데이터를 사용
             let dataToRender = (editingId === item.id) ? currentInput : item;
             let state = (editingId === item.id) ? "editing" : "confirmed";
 
-            // [정밀 계산] 절삭(floor) 로직을 완전히 제거했습니다.
             let fFinal = Number(dataToRender.framePrice);
             if (dataToRender.frameDiscType === 'fixed') fFinal -= dataToRender.frameDisc;
             else fFinal = dataToRender.framePrice * (1 - dataToRender.frameDisc/100);
@@ -607,25 +596,18 @@
 
             if(fFinal < 0) fFinal = 0; if(lFinal < 0) lFinal = 0;
             const total = (dataToRender.category === '콘택트' || dataToRender.category === '기타') ? lFinal : (fFinal + lFinal);
+            
             grandTotal += Number(total);
-            container.appendChild(createItemCard(dataToRender, idx + 1, fFinal, lFinal, total, state));
+            
+            // 카드를 생성해서 fragment에 추가
+            fragment.appendChild(createItemCard(dataToRender, idx + 1, fFinal, lFinal, total, state));
         });
 
-        // 새 품목 추가 중일 때 (수정 모드가 아닐 때만 하단 표시)
-        if (editingId === null) {
-            let curF = currentInput.framePrice;
-            if (currentInput.frameDiscType === 'fixed') curF -= currentInput.frameDisc;
-            else curF = currentInput.framePrice * (1 - currentInput.frameDisc/100);
+        // 2. 화면 업데이트: 한 번만 지우고 한 번만 붙이기
+        container.innerHTML = ''; 
+        container.appendChild(fragment);
 
-            let curL = currentInput.lensPrice;
-            if (currentInput.lensDiscType === 'fixed') curL -= currentInput.lensDisc;
-            else curL = currentInput.lensPrice * (1 - currentInput.lensDisc/100);
-
-            const curT = (currentInput.category === '콘택트') ? currentInput.lensPrice : (curF + curL);
-            grandTotal += curT;
-            container.appendChild(createItemCard(currentInput, history.length + 1, curF, curL, curT, "editing"));
-        }
-
+        // 하단 합계 업데이트
         document.getElementById('grand-total').innerText = Math.round(grandTotal).toLocaleString() + '원';
         document.getElementById('onnuri-val').innerText = Math.floor(grandTotal * 0.9).toLocaleString();
     }
@@ -874,7 +856,7 @@
     });
 
 </script>
-    <div id="reset-modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.85); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
+    <div id="reset-modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.85); z-index: 1000; justify-content: center; align-items: center;">
         <div style="background: white; padding: 30px; border-radius: 25px; width: 320px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); border: 1px solid #e2e8f0;">
             <div style="font-size: 3rem; margin-bottom: 15px;">⚠️</div>
             <h3 style="margin: 0 0 10px 0; color: #0f172a; font-weight: 900; font-size: 1.4rem;">전체 삭제</h3>
