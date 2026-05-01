@@ -20,6 +20,7 @@
         button {
             touch-action: manipulation;
         }
+        * { -webkit-tap-highlight-color: transparent; }
         body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg-color); color: var(--text-main); margin: 0; padding: 10px; display: flex; justify-content: center; height: 100vh; overflow: hidden; box-sizing: border-box; touch-action: manipulation;}
         .container { width: 1400px; height: 98vh; display: grid; grid-template-columns: 1fr 540px; gap: 20px; }
 
@@ -58,8 +59,9 @@
             border: 1px solid #cbd5e1;
             box-shadow: 0 5px 0 #cbd5e1;
             height: 100%; /* 격자 높이에 꽉 차게 */
+            transition: transform 0.05s, box-shadow 0.05s, background-color 0.05s;
         }
-        .keypad button:active { transform: translateY(4px); box-shadow: none; background: #f1f5f9; }
+        .keypad button:active { transform: translateY(4px); box-shadow: 0 1px 0 #cbd5e1; background: #f1f5f9; }
         .keypad button.util {
             background: #f1f5f9;
             font-size: 1rem; /* 글자 크기 약간 키움 */
@@ -237,6 +239,23 @@
             border-top: 1px dotted #cc8e35; /* 2px 실선 대신 1px 연한 점선으로 변경 */
         }
 
+        .point-box {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fff;
+            border: 2px dashed #cbd5e1;
+            border-radius: 16px;
+            padding: 12px 20px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .point-box:active { transform: scale(0.98); background: #f8fafc; }
+        .point-box.editing {
+            border-color: var(--panel-navy); border-style: solid; background: #f1f5f9;
+        }
+
         /* 리스트 패널 스크롤바 디자인 */
         #item-list {
             scrollbar-width: thin; /* 파이어폭스용 */
@@ -405,7 +424,15 @@
         <h2>품목 리스트</h2>
         <div id="item-list"></div>
 
-        <div class="final-summary">
+        <div class="point-box" onclick="editPoint()" id="point-input-box" style="margin-top: 10px; margin-bottom: 15px;">
+            <span style="font-weight: 800; color: var(--text-gray); font-size:1.3rem;">Ⓟ 포인트 사용</span>
+            <div>
+                <span id="point-val" style="font-size:1.8rem; font-weight:900; color: #ef4444;">0</span>
+                <span style="font-weight:700; color:#94a3b8; margin-left:5px; font-size:1.2rem;">원</span>
+            </div>
+        </div>
+
+        <div class="final-summary" style="margin-top: 0;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <span style="font-weight: 800; color: var(--text-gray); font-size:1.6rem;">총 결제 합계</span>
                 <span class="final-total-amt" id="grand-total">0원</span>
@@ -421,6 +448,8 @@
     let isAddBtnFocused = false; // 버튼 하이라이트 상태 기억
     let discountTarget = 'frame';
     let editingId = null;
+    let usedPoint = 0;
+    let isEditingPoint = false;
 
     // 시작 시 첫 항목 생성 및 리스트 추가
     let currentInput = { 
@@ -433,6 +462,41 @@
     history.push(currentInput); 
     editingId = currentInput.id;
 
+    function editPoint() {
+        isEditingPoint = true;
+        document.getElementById('point-input-box').classList.add('editing');
+        
+        document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('row-frame').classList.add('disabled');
+        document.getElementById('row-frame').classList.remove('active');
+        
+        document.getElementById('label-lens').innerText = "포인트 차감";
+        document.getElementById('row-lens').classList.add('active');
+        document.getElementById('lens-disc-btn').style.display = 'none';
+        
+        updateUI();
+    }
+
+    function exitPointEdit() {
+        if (!isEditingPoint) return;
+        isEditingPoint = false;
+        document.getElementById('point-input-box').classList.remove('editing');
+        document.getElementById('lens-disc-btn').style.display = 'flex';
+        
+        document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.toggle('active', btn.innerText === currentInput.category));
+        const frameRow = document.getElementById('row-frame');
+        const lensLabel = document.getElementById('label-lens');
+
+        if(currentInput.category === '콘택트' || currentInput.category === '기타') {
+            frameRow.classList.add('disabled'); lensLabel.innerText = "금액"; 
+            document.getElementById('row-lens').classList.add('active'); document.getElementById('row-frame').classList.remove('active'); activeType = 'lens';
+        } else {
+            frameRow.classList.remove('disabled'); lensLabel.innerText = "렌즈"; 
+            document.getElementById('row-frame').classList.add('active'); document.getElementById('row-lens').classList.remove('active'); activeType = 'frame';
+        }
+        updateUI();
+    }
+
     function applyFixedDiscount(amt) {
         if(currentInput.isConfirmed) return;
         currentInput[discountTarget + 'Disc'] = amt; // activeType 대신 discountTarget 사용
@@ -442,6 +506,7 @@
     }
 
     function setCategory(cat) {
+        if (isEditingPoint) exitPointEdit();
         if(currentInput.isConfirmed) return;
         currentInput.category = cat;
         document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.toggle('active', btn.innerText === cat));
@@ -477,6 +542,7 @@
     }
 
     function setActive(type) {
+        if (isEditingPoint) exitPointEdit();
         if(currentInput.isConfirmed) return;
         isAddBtnFocused = false;
         document.getElementById('add-btn').classList.remove('focused');
@@ -487,6 +553,16 @@
     }
 
     function num(val) {
+        if (isEditingPoint) {
+            if (isNaN(val) && val !== '0' && val !== '00' && val !== '000') return;
+            let cur = String(usedPoint);
+            if(cur === '0') cur = '';
+            if(cur.length > 12) return; 
+            usedPoint = parseInt(cur + val) || 0;
+            updateUI();
+            return;
+        }
+
         if (editingId === null) {
             // 선택된 항목이 없을 때 숫자를 누르면 알림을 주거나 무시
             console.log("편집할 항목을 먼저 선택하세요.");
@@ -502,12 +578,17 @@
 
         currentInput[activeType + 'Price'] = cur + val;
         
-        requestAnimationFrame(() => {
-            updateUI();
-        });
+        updateUI();
     }
 
     function del() {
+        if (isEditingPoint) {
+            let cur = String(usedPoint);
+            cur = cur.slice(0, -1);
+            usedPoint = cur === '' ? 0 : parseInt(cur);
+            updateUI();
+            return;
+        }
         if(currentInput.isConfirmed) return;
         let cur = String(currentInput[activeType + 'Price']);
         cur = cur.slice(0, -1);
@@ -516,10 +597,6 @@
     }
 
     function updateUI() {
-        // 현재 입력 중인 데이터를 history에 실시간 동기화
-        const idx = history.findIndex(h => h.id === currentInput.id);
-        if (idx !== -1) history[idx] = {...currentInput};
-
         // 숫자인 경우에만 3자리마다 쉼표(,)를 찍어주는 기능
         const formatInput = (val) => {
             let s = String(val).replace(/,/g, ''); // 기존 쉼표 제거
@@ -529,17 +606,22 @@
             return val; // 수식(+,-,*)인 경우 그대로 표시
         };
 
-        const fDisp = formatInput(currentInput.framePrice);
-        const lDisp = formatInput(currentInput.lensPrice);
+        if (isEditingPoint) {
+            document.getElementById('frame-display').innerText = '0';
+            document.getElementById('lens-display').innerText = formatInput(usedPoint);
+        } else {
+            const idx = history.findIndex(h => h.id === currentInput.id);
+            if (idx !== -1) history[idx] = {...currentInput};
 
-        document.getElementById('frame-display').innerText = fDisp;
-        document.getElementById('lens-display').innerText = lDisp;
+            const fDisp = formatInput(currentInput.framePrice);
+            const lDisp = formatInput(currentInput.lensPrice);
 
-        // 할인율 버튼 표시 (만원 vs %)
-        document.getElementById('frame-disc-btn').innerText = 
-            currentInput.frameDiscType === 'fixed' ? (currentInput.frameDisc / 10000) + '만원' : currentInput.frameDisc + '%';
-        document.getElementById('lens-disc-btn').innerText = 
-            currentInput.lensDiscType === 'fixed' ? (currentInput.lensDisc / 10000) + '만원' : currentInput.lensDisc + '%';
+            document.getElementById('frame-display').innerText = fDisp;
+            document.getElementById('lens-display').innerText = lDisp;
+
+            document.getElementById('frame-disc-btn').innerText = currentInput.frameDiscType === 'fixed' ? (currentInput.frameDisc / 10000) + '만원' : currentInput.frameDisc + '%';
+            document.getElementById('lens-disc-btn').innerText = currentInput.lensDiscType === 'fixed' ? (currentInput.lensDisc / 10000) + '만원' : currentInput.lensDisc + '%';
+        }
         
         renderList();
     }
@@ -560,6 +642,7 @@
     }
 
     function addNewItem() {
+        if (isEditingPoint) exitPointEdit();
         const lastCategory = currentInput.category; // 1. 현재 카테고리를 기억함
 
         const currentIdx = history.findIndex(h => h.id === currentInput.id);
@@ -587,8 +670,11 @@
 
     // 1. 품목 클릭 시 편집/해제 토글 로직
     function editItem(id) {
-        if (editingId === id) {
-            // 이미 선택된 걸 또 누르면 -> 잠금(해제)
+        const wasEditingPoint = isEditingPoint;
+        if (wasEditingPoint) exitPointEdit();
+        
+        if (editingId === id && !wasEditingPoint) {
+            // 이미 선택된 걸 또 누르면 -> 잠금(해제) (단, 포인트 편집 모드에서 돌아오는 상황이 아닐 때만)
             const idx = history.findIndex(h => h.id === id);
             if (idx !== -1) history[idx].isConfirmed = true;
             editingId = null; 
@@ -621,7 +707,7 @@
         // 1. 기존 데이터들 처리
         history.forEach((item, idx) => {
             let dataToRender = (editingId === item.id) ? currentInput : item;
-            let state = (editingId === item.id) ? "editing" : "confirmed";
+            let state = (editingId === item.id && !isEditingPoint) ? "editing" : "confirmed";
 
             let fFinal = Number(dataToRender.framePrice);
             if (dataToRender.frameDiscType === 'fixed') fFinal -= dataToRender.frameDisc;
@@ -644,12 +730,19 @@
         container.innerHTML = ''; 
         container.appendChild(fragment);
 
+        grandTotal -= usedPoint;
+        if (grandTotal < 0) grandTotal = 0;
+
+        const pointValEl = document.getElementById('point-val');
+        if (pointValEl) pointValEl.innerText = Math.round(usedPoint).toLocaleString();
+
         // 하단 합계 업데이트
         document.getElementById('grand-total').innerText = Math.round(grandTotal).toLocaleString() + '원';
         document.getElementById('onnuri-val').innerText = Math.floor(grandTotal * 0.9).toLocaleString();
     }
 
     function resetCurrent() {
+        if (isEditingPoint) exitPointEdit();
         if (history.length > 1) {
             // 품목이 여러 개면 현재 편집 중인 항목을 지우고 이전 항목으로
             history = history.filter(h => h.id !== editingId);
@@ -680,6 +773,7 @@
     // 3. 진짜로 삭제 진행 (삭제 진행 눌렀을 때)
     function confirmFullReset() {
         history = []; 
+        usedPoint = 0;
         const firstId = Date.now();
         currentInput = { 
             id: firstId, category: '안경', 
@@ -800,6 +894,10 @@
         // 4. 엔터 (계산 및 확정)
         else if (e.key === 'Enter') {
             e.preventDefault();
+            if (isEditingPoint) {
+                exitPointEdit();
+                return;
+            }
             // 콤마가 포함되어 있을 수 있으므로 제거 후 계산 준비
             let rawVal = String(currentInput[activeType + 'Price']).replace(/,/g, '');
             
